@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Spreadsheet</title>
+    <style>
+        :root {
+            --primary-color: #107c41; /* Excel Green */
+            --border-color: #d4d4d4;
+            --header-bg: #f8f9fa;
+            --selected-border: #107c41;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            background: #f3f3f3;
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .tool-group {
+            display: flex;
+            gap: 5px;
+            border-right: 1px solid #ccc;
+            padding-right: 10px;
+            align-items: center;
+        }
+
+        .tool-group:last-child {
+            border-right: none;
+        }
+
+        button {
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #eef;
+        }
+
+        button.active {
+            background: #ddd;
+            font-weight: bold;
+        }
+
+        input[type="color"] {
+            border: none;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            background: none;
+        }
+
+        /* Formula Bar */
+        .formula-bar {
+            display: flex;
+            align-items: center;
+            padding: 5px;
+            background: white;
+            border-bottom: 1px solid var(--border-color);
+            gap: 10px;
+        }
+
+        #selected-cell-display {
+            width: 50px;
+            text-align: center;
+            font-weight: bold;
+            color: #666;
+            border: 1px solid #ddd;
+            padding: 4px;
+            background: #f9f9f9;
+        }
+
+        #formula-input {
+            flex-grow: 1;
+            padding: 5px;
+            border: 1px solid #ddd;
+            outline: none;
+        }
+
+        /* Spreadsheet Grid */
+        .spreadsheet-container {
+            flex-grow: 1;
+            overflow: auto;
+            position: relative;
+        }
+
+        table {
+            border-collapse: collapse;
+            min-width: 100%;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            min-width: 80px;
+            height: 25px;
+            position: relative;
+        }
+
+        /* Headers */
+        th {
+            background: var(--header-bg);
+            font-weight: normal;
+            font-size: 12px;
+            color: #666;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            user-select: none;
+        }
+
+        .row-header {
+            position: sticky;
+            left: 0;
+            z-index: 11;
+            background: var(--header-bg);
+            width: 40px;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .corner-header {
+            z-index: 12;
+            width: 40px;
+            min-width: 40px;
+        }
+
+        /* Cells */
+        td {
+            padding: 0;
+            background: white;
+            cursor: cell;
+        }
+
+        td input {
+            width: 100%;
+            height: 100%;
+            border: none;
+            outline: none;
+            padding: 0 4px;
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: 13px;
+            background: transparent;
+        }
+
+        td:focus-within {
+            outline: 2px solid var(--selected-border);
+            z-index: 5;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            background: #f3f3f3;
+            border-top: 1px solid var(--border-color);
+            padding: 5px 15px;
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            justify-content: flex-end;
+            gap: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <div class="tool-group">
+            <button onclick="saveData()" title="Save to Browser">💾 Save</button>
+            <button onclick="clearSheet()" title="Clear All">🗑️ Clear</button>
+            <button onclick="exportCSV()" title="Download CSV">📥 Export CSV</button>
+        </div>
+        <div class="tool-group">
+            <button onclick="formatText('bold')" id="btn-bold"><b>B</b></button>
+            <button onclick="formatText('italic')" id="btn-italic"><i>I</i></button>
+            <button onclick="formatText('underline')" id="btn-underline"><u>U</u></button>
+        </div>
+        <div class="tool-group">
+            <label style="font-size:12px">Text:</label>
+            <input type="color" id="text-color" onchange="formatText('color', this.value)" title="Text Color">
+            <label style="font-size:12px">Fill:</label>
+            <input type="color" id="bg-color" value="#ffffff" onchange="formatText('bg', this.value)" title="Background Color">
+        </div>
+        <div class="tool-group">
+            <select id="alignment" onchange="formatText('align', this.value)">
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Formula Bar -->
+    <div class="formula-bar">
+        <div id="selected-cell-display">A1</div>
+        <span style="font-weight:bold; color:#666;">fx</span>
+        <input type="text" id="formula-input" placeholder="Enter value or formula (e.g., =A1+B2)">
+    </div>
+
+    <!-- Grid -->
+    <div class="spreadsheet-container">
+        <table id="spreadsheet">
+            <!-- Generated by JS -->
+        </table>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <span id="status-msg">Ready</span>
+        <span id="sum-display"></span>
+        <span id="count-display"></span>
+    </div>
+
+    <script>
+        const COLS = 20; // A to T
+        const ROWS = 50;
+        const spreadsheet = document.getElementById('spreadsheet');
+        const formulaInput = document.getElementById('formula-input');
+        const selectedCellDisplay = document.getElementById('selected-cell-display');
+        
+        // State management
+        let cells = {}; // Stores raw data: { "A1": { value: "10", style: {...} } }
+        let selectedCellId = null;
+
+        // Initialize Grid
+        function initGrid() {
+            // Load from local storage if available
+            const saved = localStorage.getItem('webSpreadsheetData');
+            if (saved) {
+                cells = JSON.parse(saved);
+            }
+
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            
+            // Corner
+            const corner = document.createElement('th');
+            corner.className = 'corner-header';
+            headerRow.appendChild(corner);
+
+            // Column Headers (A, B, C...)
+            for (let i = 0; i < COLS; i++) {
+                const th = document.createElement('th');
+                th.textContent = String.fromCharCode(65 + i);
+                headerRow.appendChild(th);
+            }
+            thead.appendChild(headerRow);
+            spreadsheet.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            for (let row = 1; row <= ROWS; row++) {
+                const tr = document.createElement('tr');
+                
+                // Row Header (1, 2, 3...)
+                const rh = document.createElement('th');
+                rh.className = 'row-header';
+                rh.textContent = row;
+                tr.appendChild(rh);
+
+                for (let col = 0; col < COLS; col++) {
+                    const colLetter = String.fromCharCode(65 + col);
+                    const cellId = `${colLetter}${row}`;
+                    
+                    const td = document.createElement('td');
+                    const input = document.createElement('input');
+                    input.id = cellId;
+                    input.dataset.id = cellId;
+                    
+                    // Restore styles if they exist
+                    if (cells[cellId] && cells[cellId].style) {
+                        applyStyles(input, cells[cellId].style);
+                    }
+
+                    // Events
+                    input.addEventListener('focus', handleFocus);
+                    input.addEventListener('blur', handleBlur);
+                    input.addEventListener('keydown', handleKeyDown);
+                    input.addEventListener('input', handleInput);
+
+                    td.appendChild(input);
+                    tr.appendChild(td);
+                }
+                tbody.appendChild(tr);
+            }
+            spreadsheet.appendChild(tbody);
+        }
+
+        function handleFocus(e) {
+            const id = e.target.dataset.id;
+            selectedCellId = id;
+            selectedCellDisplay.textContent = id;
+            
+            // Show raw value/formula in formula bar
+            const cellData = cells[id];
+            formulaInput.value = cellData ? (cellData.formula || cellData.value) : '';
+            
+            updateToolbarState(cells[id]?.style);
+            calculateStatus();
+        }
+
+        function handleBlur(e) {
+            // Recalculate all dependent cells when leaving a cell
+            recalculateAll();
+        }
+
+        function handleInput(e) {
+            const id = e.target.dataset.id;
+            const val = e.target.value;
+            
+            if (!cells[id]) cells[id] = {};
+            
+            // If starts with '=', it's a formula
+            if (val.startsWith('=')) {
+                cells[id].formula = val;
+                cells[id].value = val; // Temporarily store formula as value until calc
+            } else {
+                cells[id].value = val;
+                delete cells[id].formula;
+            }
+            
+            // Immediate simple update (full recalc on blur)
+            if (!val.startsWith('=')) {
+                e.target.value = val;
+            }
+        }
+
+        function handleKeyDown(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                // Move down
+                const currentId = e.target.dataset.id;
+                const col = currentId.charAt(0);
+                const row = parseInt(currentId.slice(1));
+                const nextId = `${col}${row + 1}`;
+                const nextInput = document.getElementById(nextId);
+                if (nextInput) nextInput.focus();
+            } else if (e.key === 'Tab') {
+                e.preventDefault();
+                // Move right
+                const currentId = e.target.dataset.id;
+                const colCode = currentId.charCodeAt(0);
+                const row = currentId.slice(1);
+                const nextCol = String.fromCharCode(colCode + 1);
+                const nextId = `${nextCol}${row}`;
+                const nextInput = document.getElementById(nextId);
+                if (nextInput) nextInput.focus();
+            }
+        }
+
+        // Formula Bar Input Sync
+        formulaInput.addEventListener('input', (e) => {
+            if (!selectedCellId) return;
+            const val = e.target.value;
+            const input = document.getElementById(selectedCellId);
+            input.value = val;
+            handleInput({ target: input });
+        });
+
+        formulaInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (selectedCellId) {
+                    document.getElementById(selectedCellId).blur();
+                }
+            }
+        });
+
+        // Evaluation Logic
+        function evaluateFormula(formula) {
+            try {
+                const expr = formula.substring(1).toUpperCase();
+                // Replace cell references (e.g., A1) with their numeric values
+                const parsed = expr.replace(/[A-Z]+[0-9]+/g, (match) => {
+                    const cellData = cells[match];
+                    if (!cellData) return 0;
+                    const val = parseFloat(cellData.computedValue || cellData.value || 0);
+                    return isNaN(val) ? 0 : val;
+                });
+                
+                // Safe evaluation using Function constructor (limited scope)
+                // Note: In a production app, use a proper math parser library
+                const result = new Function('return ' + parsed)();
+                return isNaN(result) ? '#ERROR' : result;
+            } catch (err) {
+                return '#ERROR';
+            }
+        }
+
+        function recalculateAll() {
+            // Simple dependency resolution: iterate multiple times or do a topological sort
+            // For this demo, we iterate 3 times to resolve chains like A1=B1, B1=C1
+            for (let k = 0; k < 3; k++) {
+                for (let r = 1; r <= ROWS; r++) {
+                    for (let c = 0; c < COLS; c++) {
+                        const colLetter = String.fromCharCode(65 + c);
+                        const id = `${colLetter}${r}`;
+                        const input = document.getElementById(id);
+                        const data = cells[id];
+
+                        if (data && data.formula) {
+                            const result = evaluateFormula(data.formula);
+                            data.computedValue = result;
+                            input.value = result;
+                        } else if (data && data.value !== undefined) {
+                            // Non-formula cells just show their value
+                            if (!data.formula) input.value = data.value;
+                            data.computedValue = data.value;
+                        } else {
+                            input.value = '';
+                            data.computedValue = '';
+                        }
+                    }
+                }
+            }
+            calculateStatus();
+        }
+
+        // Formatting Functions
+        function formatText(type, value) {
+            if (!selectedCellId) return;
+            const input = document.getElementById(selectedCellId);
+            if (!cells[selectedCellId]) cells[selectedCellId] = {};
+            if (!cells[selectedCellId].style) cells[selectedCellId].style = {};
+
+            const style = cells[selectedCellId].style;
+
+            switch(type) {
+                case 'bold':
+                    style.fontWeight = style.fontWeight === 'bold' ? 'normal' : 'bold';
+                    document.getElementById('btn-bold').classList.toggle('active', style.fontWeight === 'bold');
+                    break;
+                case 'italic':
+                    style.fontStyle = style.fontStyle === 'italic' ? 'normal' : 'italic';
+                    document.getElementById('btn-italic').classList.toggle('active', style.fontStyle === 'italic');
+                    break;
+                case 'underline':
+                    style.textDecoration = style.textDecoration === 'underline' ? 'none' : 'underline';
+                    document.getElementById('btn-underline').classList.toggle('active', style.textDecoration === 'underline');
+                    break;
+                case 'color':
+                    style.color = value;
+                    break;
+                case 'bg':
+                    style.backgroundColor = value;
+                    break;
+                case 'align':
+                    style.textAlign = value;
+                    break;
+            }
+
+            applyStyles(input, style);
+        }
+
+        function applyStyles(input, style) {
+            if (!style) return;
+            Object.assign(input.style, style);
+        }
+
+        function updateToolbarState(style) {
+            document.getElementById('btn-bold').classList.toggle('active', style?.fontWeight === 'bold');
+            document.getElementById('btn-italic').classList.toggle('active', style?.fontStyle === 'italic');
+            document.getElementById('btn-underline').classList.toggle('active', style?.textDecoration === 'underline');
+            document.getElementById('alignment').value = style?.textAlign || 'left';
+        }
+
+        // Utilities
+        function saveData() {
+            localStorage.setItem('webSpreadsheetData', JSON.stringify(cells));
+            const status = document.getElementById('status-msg');
+            status.textContent = 'Saved successfully!';
+            setTimeout(() => status.textContent = 'Ready', 2000);
+        }
+
+        function clearSheet() {
+            if(confirm("Are you sure you want to clear all data?")) {
+                cells = {};
+                localStorage.removeItem('webSpreadsheetData');
+                location.reload();
+            }
+        }
+
+        function exportCSV() {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            for (let r = 1; r <= ROWS; r++) {
+                let row = [];
+                for (let c = 0; c < COLS; c++) {
+                    const colLetter = String.fromCharCode(65 + c);
+                    const id = `${colLetter}${r}`;
+                    const data = cells[id];
+                    let val = data ? (data.computedValue || data.value || '') : '';
+                    // Escape quotes
+                    val = `"${String(val).replace(/"/g, '""')}"`;
+                    row.push(val);
+                }
+                csvContent += row.join(",") + "\r\n";
+            }
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "spreadsheet_export.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function calculateStatus() {
+            // Calculate sum and count of selected range (simplified: just all numeric visible cells for now)
+            // Ideally, this would track a selected range, but for single cell focus:
+            let sum = 0;
+            let count = 0;
+            let hasSelection = false;
+
+            // If a range was selected (future feature), we'd iterate that. 
+            // For now, let's just show stats for the whole sheet or specific logic
+            // Let's make it show Sum/Count of all numeric cells in the sheet for demonstration
+            // Or better: Just show "Ready" unless we implement multi-select
+            
+            // Simple implementation: Count non-empty cells
+            let totalNonEmpty = 0;
+            for (let key in cells) {
+                if (cells[key].value !== '' && cells[key].value !== undefined) {
+                    totalNonEmpty++;
+                    const val = parseFloat(cells[key].computedValue || cells[key].value);
+                    if (!isNaN(val)) {
+                        sum += val;
+                        count++;
+                    }
+                }
+            }
+            
+            document.getElementById('count-display').textContent = `Count: ${totalNonEmpty}`;
+            if (count > 0) {
+                document.getElementById('sum-display').textContent = `Sum: ${sum.toFixed(2)}`;
+            } else {
+                document.getElementById('sum-display').textContent = '';
+            }
+        }
+
+        // Start
+        initGrid();
+
+    </script>
+</body>
+</html>
