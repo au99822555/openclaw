@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Notepad</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1e1e2e;
+            color: #cdd6f4;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .toolbar {
+            background: #313244;
+            padding: 1rem;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+            border-bottom: 1px solid #45475a;
+        }
+
+        .toolbar h1 {
+            font-size: 1.5rem;
+            color: #89b4fa;
+            margin-right: auto;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        label {
+            font-size: 0.9rem;
+            color: #a6adc8;
+        }
+
+        select, button {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        select {
+            background: #45475a;
+            color: #cdd6f4;
+            border: 1px solid #585b70;
+        }
+
+        select:hover {
+            border-color: #89b4fa;
+        }
+
+        button {
+            background: #89b4fa;
+            color: #1e1e2e;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #b4befe;
+            transform: translateY(-1px);
+        }
+
+        button.danger {
+            background: #f38ba8;
+        }
+
+        button.danger:hover {
+            background: #eba0ac;
+        }
+
+        .editor-container {
+            flex: 1;
+            position: relative;
+        }
+
+        .CodeMirror {
+            height: 100%;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .status-bar {
+            background: #313244;
+            padding: 0.5rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: #a6adc8;
+            border-top: 1px solid #45475a;
+        }
+
+        .file-info {
+            display: flex;
+            gap: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <h1>📝 Code Notepad</h1>
+        
+        <div class="control-group">
+            <label for="language">Language:</label>
+            <select id="language">
+                <option value="javascript">JavaScript</option>
+                <option value="python">Python</option>
+                <option value="htmlmixed">HTML</option>
+                <option value="css">CSS</option>
+                <option value="java">Java</option>
+                <option value="cpp">C++</option>
+                <option value="c">C</option>
+                <option value="sql">SQL</option>
+                <option value="php">PHP</option>
+                <option value="ruby">Ruby</option>
+                <option value="go">Go</option>
+                <option value="rust">Rust</option>
+                <option value="typescript">TypeScript</option>
+                <option value="json">JSON</option>
+                <option value="xml">XML</option>
+                <option value="markdown">Markdown</option>
+                <option value="shell">Shell</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <button onclick="newFile()">📄 New</button>
+            <button onclick="saveFile()">💾 Save</button>
+            <button onclick="downloadFile()">⬇️ Download</button>
+            <button class="danger" onclick="clearEditor()">🗑️ Clear</button>
+        </div>
+    </div>
+
+    <div class="editor-container">
+        <textarea id="editor"></textarea>
+    </div>
+
+    <div class="status-bar">
+        <div class="file-info">
+            <span id="char-count">Characters: 0</span>
+            <span id="line-count">Lines: 0</span>
+            <span id="cursor-position">Ln 1, Col 1</span>
+        </div>
+        <div id="language-display">JavaScript</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/clike/clike.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/sql/sql.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/php/php.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/ruby/ruby.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/go/go.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/rust/rust.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/markdown/markdown.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/shell/shell.min.js"></script>
+
+    <script>
+        // Initialize CodeMirror
+        const editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
+            mode: 'javascript',
+            theme: 'dracula',
+            lineNumbers: true,
+            autoCloseBrackets: true,
+            matchBrackets: true,
+            indentUnit: 4,
+            tabSize: 4,
+            lineWrapping: false,
+            extraKeys: {
+                'Ctrl-S': saveFile,
+                'Tab': function(cm) {
+                    if (cm.somethingSelected()) {
+                        cm.indentSelection('add');
+                    } else {
+                        cm.replaceSelection('    ', 'end');
+                    }
+                }
+            }
+        });
+
+        let currentFileName = 'untitled.js';
+        const languageExtensions = {
+            'javascript': 'js',
+            'python': 'py',
+            'htmlmixed': 'html',
+            'css': 'css',
+            'java': 'java',
+            'cpp': 'cpp',
+            'c': 'c',
+            'sql': 'sql',
+            'php': 'php',
+            'ruby': 'rb',
+            'go': 'go',
+            'rust': 'rs',
+            'typescript': 'ts',
+            'json': 'json',
+            'xml': 'xml',
+            'markdown': 'md',
+            'shell': 'sh'
+        };
+
+        // Language change handler
+        document.getElementById('language').addEventListener('change', function() {
+            const selectedMode = this.value;
+            editor.setOption('mode', selectedMode);
+            document.getElementById('language-display').textContent = 
+                selectedMode.charAt(0).toUpperCase() + selectedMode.slice(1);
+            
+            // Update file extension
+            const ext = languageExtensions[selectedMode];
+            const baseName = currentFileName.split('.')[0] || 'untitled';
+            currentFileName = `${baseName}.${ext}`;
+            
+            updateStatusBar();
+        });
+
+        // Status bar updates
+        editor.on('change', updateStatusBar);
+        editor.on('cursorActivity', updateStatusBar);
+
+        function updateStatusBar() {
+            const content = editor.getValue();
+            const cursor = editor.getCursor();
+            
+            document.getElementById('char-count').textContent = `Characters: ${content.length}`;
+            document.getElementById('line-count').textContent = `Lines: ${editor.lineCount()}`;
+            document.getElementById('cursor-position').textContent = `Ln ${cursor.line + 1}, Col ${cursor.ch + 1}`;
+        }
+
+        function newFile() {
+            if (confirm('Create a new file? Unsaved changes will be lost.')) {
+                editor.setValue('');
+                currentFileName = 'untitled.' + languageExtensions[document.getElementById('language').value];
+                updateStatusBar();
+                editor.focus();
+            }
+        }
+
+        function clearEditor() {
+            if (confirm('Clear all content?')) {
+                editor.setValue('');
+                updateStatusBar();
+                editor.focus();
+            }
+        }
+
+        function saveFile() {
+            const content = editor.getValue();
+            localStorage.setItem('codeNotepadContent', content);
+            localStorage.setItem('codeNotepadLanguage', document.getElementById('language').value);
+            alert('File saved to browser storage!');
+        }
+
+        function downloadFile() {
+            const content = editor.getValue();
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = currentFileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Load saved content on startup
+        window.addEventListener('load', function() {
+            const savedContent = localStorage.getItem('codeNotepadContent');
+            const savedLanguage = localStorage.getItem('codeNotepadLanguage');
+            
+            if (savedContent) {
+                editor.setValue(savedContent);
+            }
+            
+            if (savedLanguage) {
+                document.getElementById('language').value = savedLanguage;
+                editor.setOption('mode', savedLanguage);
+                document.getElementById('language-display').textContent = 
+                    savedLanguage.charAt(0).toUpperCase() + savedLanguage.slice(1);
+            }
+            
+            updateStatusBar();
+        });
+    </script>
+</body>
+</html>
